@@ -1,5 +1,9 @@
 # S3 Pre-signed URL Proxy
 
+[![Docker Hub Publish](https://github.com/ugurcandede/grispi-usercontent-proxy/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/ugurcandede/grispi-usercontent-proxy/actions/workflows/docker-publish.yml)
+[![Docker Hub](https://img.shields.io/docker/v/ugurcandede/s3-presigned-url-proxy?label=Docker%20Hub)](https://hub.docker.com/r/ugurcandede/s3-presigned-url-proxy)
+[![Docker Image Size](https://img.shields.io/docker/image-size/ugurcandede/s3-presigned-url-proxy/latest)](https://hub.docker.com/r/ugurcandede/s3-presigned-url-proxy)
+
 ⚠️ **LOCAL DEVELOPMENT ONLY - NOT FOR PRODUCTION USE** ⚠️
 
 A lightweight Python Flask service that proxies HTTP requests to AWS S3 pre-signed URLs with automatic 302 redirects. Perfect for local development environments where you need quick access to S3-stored files without implementing full AWS SDK integration.
@@ -33,6 +37,32 @@ This service intercepts HTTP requests and converts them to time-limited AWS S3 p
 
 - Docker & Docker Compose installed
 - AWS S3 bucket access credentials
+
+### Option A: Using Docker Hub (Recommended)
+
+Pull the pre-built image from Docker Hub:
+
+```bash
+docker pull ugurcandede/s3-presigned-url-proxy:latest
+```
+
+Then use the provided `docker-compose.example.yml` or create your own `docker-compose.yml`:
+
+```yaml
+# Option 1: Use the example file directly
+docker-compose -f docker-compose.example.yml up -d
+
+# Option 2: Copy and customize
+cp docker-compose.example.yml docker-compose.yml
+# Edit docker-compose.yml with your AWS credentials
+nano docker-compose.yml  # or use your preferred editor
+
+# Then start the service
+docker-compose up -d
+```
+> Note: Make sure to update the AWS credentials in the compose file before starting the service.
+
+### Option B: Build from Source
 
 ### 1. Clone and Setup
 
