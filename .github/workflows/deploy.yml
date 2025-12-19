@@ -115,6 +115,7 @@ jobs:
   release:
     runs-on: ubuntu-latest
     if: github.ref_type == 'tag'
+    needs: publish
     permissions:
       contents: write
       packages: write
