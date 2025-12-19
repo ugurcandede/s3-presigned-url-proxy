@@ -2,6 +2,7 @@
 
 [![Build and Deploy](https://github.com/ugurcandede/s3-presigned-url-proxy/actions/workflows/deploy.yml/badge.svg)](https://github.com/ugurcandede/s3-presigned-url-proxy/actions/workflows/deploy.yml)
 [![Docker Hub](https://img.shields.io/docker/v/ugurcandede/s3-presigned-url-proxy?label=Docker%20Hub)](https://hub.docker.com/r/ugurcandede/s3-presigned-url-proxy)
+[![Docker Hub](https://img.shields.io/docker/pulls/ugurcandede/s3-presigned-url-proxy?label=Docker%20Hub)](https://hub.docker.com/r/ugurcandede/s3-presigned-url-proxy)
 [![Docker Image Size](https://img.shields.io/docker/image-size/ugurcandede/s3-presigned-url-proxy/latest)](https://hub.docker.com/r/ugurcandede/s3-presigned-url-proxy)
 
 ⚠️ **LOCAL DEVELOPMENT ONLY - NOT FOR PRODUCTION USE** ⚠️
