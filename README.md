@@ -22,9 +22,10 @@ This service intercepts HTTP requests and converts them to time-limited AWS S3 p
 - 🔄 **Automatic Redirects** - HTTP 302 to S3 pre-signed URLs
 - 🐳 **Fully Containerized** - Docker Compose for easy deployment
 - 📝 **Comprehensive Logging** - Track all requests and errors
-- ✅ **Health Check** - Built-in `/health` endpoint
-- 🔐 **Secure** - Pre-signed URLs with 4-hour expiration
+- ✅ **Health Check** - Built-in `/health` endpoint with automatic Docker health monitoring
+- 🔐 **Secure** - Pre-signed URLs with 4-hour expiration, read-only filesystem
 - 🌐 **Platform Independent** - Works on Windows, Linux, and macOS
+- 🛡️ **Hardened Security** - Read-only container filesystem with tmpfs for temporary files
 
 ## Quick Start
 
@@ -225,6 +226,28 @@ All configuration is done via environment variables in `docker-compose.yml`:
 | `AWS_SECRET_ACCESS_KEY` | - | AWS secret key |
 | `PRESIGNED_URL_EXPIRATION` | `14400` | URL validity in seconds (4 hours) |
 
+### Docker Resource Limits
+
+The container has the following resource constraints for optimal performance:
+
+- **CPU Limit:** 0.25 cores (25% of one CPU)
+- **Memory Limit:** 256 MB maximum
+- **Memory Reservation:** 128 MB guaranteed minimum
+- **Read-Only Filesystem:** Yes (with tmpfs for /tmp and /run)
+- **Security:** `no-new-privileges` enabled
+
+### Health Check Configuration
+
+The container includes automatic health monitoring:
+
+- **Check Interval:** Every 30 seconds
+- **Timeout:** 10 seconds per check
+- **Retries:** 3 failed checks before marking unhealthy
+- **Start Period:** 40 seconds grace period on startup
+- **Method:** Python urllib health endpoint test
+
+View health status: `docker ps` (shows "healthy" or "unhealthy")
+
 ## Logging
 
 The service logs all requests with the following format:
@@ -400,10 +423,3 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## Support
 
 For detailed architecture information, see [ARCHITECTURE.md](ARCHITECTURE.md)
-
----
-
-**Last Updated:** December 19, 2025  
-**Version:** 1.0  
-**Status:** ✅ Ready for local development use
-
