@@ -401,8 +401,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 For detailed architecture information, see [ARCHITECTURE.md](ARCHITECTURE.md)
 
-For quick start in Turkish, see [QUICKSTART.md](QUICKSTART.md)
-
 ---
 
 **Last Updated:** December 19, 2025  

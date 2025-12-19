@@ -291,5 +291,5 @@ ERROR             Unexpected errors         Unexpected error: exception=...
 
 ---
 
-**Not:** Bu diyagramlar sistem mimarisini göstermektedir. Gerçek implementasyon için kod dosyalarına bakınız.
+**Note:** These diagrams show the system architecture. For the actual implementation, refer to the code files.
 
