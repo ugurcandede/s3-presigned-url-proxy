@@ -1,7 +1,6 @@
 # S3 Pre-signed URL Proxy
 
-[![Build](https://github.com/ugurcandede/s3-presigned-url-proxy/actions/workflows/build.yml/badge.svg)](https://github.com/ugurcandede/s3-presigned-url-proxy/actions/workflows/build.yml)
-[![Docker Hub Publish](https://github.com/ugurcandede/s3-presigned-url-proxy/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/ugurcandede/s3-presigned-url-proxy/actions/workflows/docker-publish.yml)
+[![Build and Deploy](https://github.com/ugurcandede/s3-presigned-url-proxy/actions/workflows/deploy.yml/badge.svg)](https://github.com/ugurcandede/s3-presigned-url-proxy/actions/workflows/deploy.yml)
 [![Docker Hub](https://img.shields.io/docker/v/ugurcandede/s3-presigned-url-proxy?label=Docker%20Hub)](https://hub.docker.com/r/ugurcandede/s3-presigned-url-proxy)
 [![Docker Image Size](https://img.shields.io/docker/image-size/ugurcandede/s3-presigned-url-proxy/latest)](https://hub.docker.com/r/ugurcandede/s3-presigned-url-proxy)
 

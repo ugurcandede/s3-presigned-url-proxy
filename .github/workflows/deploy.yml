@@ -1,17 +1,121 @@
-name: Release and Publish
+name: Build and Deploy
 
-on:
-  push:
-    tags:
-      - 'v*.*.*'      # SemVer: v1.0.0, v2.1.3
-      - 'v20*.*.*'    # CalVer: v2025.12.19, v2026.01.01
+#on:
+#  push:
+#    branches:
+#      - master
+#    tags:
+#      - 'v*.*.*'      # SemVer: v1.0.0
+#      - 'v20*.*.*'    # CalVer: v2025.12.19
 
 env:
   IMAGE_NAME: s3-presigned-url-proxy
 
 jobs:
+  # Job 1: Build Docker image
+  build:
+    runs-on: ubuntu-latest
+    if: github.ref_type == 'branch'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: false
+          platforms: linux/amd64,linux/arm64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build summary
+        run: |
+          echo "## ✅ Build Successful" >> $GITHUB_STEP_SUMMARY
+          echo "Multi-platform build completed (amd64, arm64)" >> $GITHUB_STEP_SUMMARY
+
+  # Job 2: Publish to Docker Hub (depends on build)
+  publish:
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref_type == 'branch'
+    permissions:
+      contents: write
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+
+      - name: Get current date for CalVer
+        id: date
+        run: echo "calver=$(date +'%Y.%m.%d')" >> $GITHUB_OUTPUT
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ secrets.DOCKER_HUB_USERNAME }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=latest
+            type=raw,value=v${{ steps.date.outputs.calver }}
+            type=sha,format=short
+
+      - name: Build and push to Docker Hub
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          platforms: linux/amd64,linux/arm64
+          cache-from: type=gha
+
+      - name: Create CalVer git tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          TAG="v${{ steps.date.outputs.calver }}"
+          
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists, skipping..."
+          else
+            git tag -a "$TAG" -m "Auto-release $TAG"
+            git push origin "$TAG"
+            echo "✅ Created and pushed tag: $TAG"
+          fi
+
+      - name: Publish summary
+        run: |
+          echo "## 🚀 Docker Hub Publish Successful" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📦 Published Tags:" >> $GITHUB_STEP_SUMMARY
+          echo "- \`latest\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`v${{ steps.date.outputs.calver }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`${GITHUB_SHA:0:7}\`" >> $GITHUB_STEP_SUMMARY
+
+  # Job 3: Create GitHub Release (runs on tag push)
   release:
     runs-on: ubuntu-latest
+    if: github.ref_type == 'tag'
     permissions:
       contents: write
       packages: write
@@ -63,13 +167,10 @@ jobs:
             ${{ secrets.DOCKER_HUB_USERNAME }}/${{ env.IMAGE_NAME }}
             ghcr.io/${{ github.repository }}
           tags: |
-            # For SemVer tags (v1.0.0): create semantic versions
             type=semver,pattern={{version}},enable=${{ steps.version.outputs.is_calver == 'false' }}
             type=semver,pattern={{major}}.{{minor}},enable=${{ steps.version.outputs.is_calver == 'false' }}
             type=semver,pattern={{major}},enable=${{ steps.version.outputs.is_calver == 'false' }}
-            # For CalVer tags (v2025.12.19): use as-is
             type=raw,value=${{ steps.version.outputs.tag }},enable=${{ steps.version.outputs.is_calver == 'true' }}
-            # Always tag as latest
             type=raw,value=latest
 
       - name: Build and push Docker images
@@ -82,19 +183,22 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           platforms: linux/amd64,linux/arm64
           cache-from: type=gha
-          cache-to: type=gha,mode=max
 
       - name: Generate release notes
         id: release_notes
         run: |
-          # Determine release type
           if [[ "${{ steps.version.outputs.is_calver }}" == "true" ]]; then
             RELEASE_TYPE="📅 CalVer Auto-Release"
           else
             RELEASE_TYPE="🔢 SemVer Release"
           fi
+          
+          cat > release_notes.md << 'EOF'
+          ## 🚀 Release ${{ steps.version.outputs.tag }}
+          
+          **Release Type:** RELEASE_TYPE_PLACEHOLDER
 
-          cat >> release_notes.md << 'NOTES'
+          ### 📦 Docker Images
 
           **Docker Hub:**
           ```bash
@@ -108,7 +212,7 @@ jobs:
           docker pull ghcr.io/${{ github.repository }}:latest
           ```
 
-          ### Quick Start
+          ### 🚀 Quick Start
 
           ```bash
           docker run -d \
@@ -121,18 +225,19 @@ jobs:
             ${{ secrets.DOCKER_HUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
           ```
 
-          ### Features
-          - ✅ Multi-platform support (amd64, arm64)
-          - ✅ Health check endpoint
-          - ✅ Read-only filesystem
-          - ✅ Resource limits configured
-          - ✅ Auto-restart enabled
+          ### ✅ Features
+          - Multi-platform support (amd64, arm64)
+          - Health check endpoint
+          - Read-only filesystem
+          - Resource limits configured
+          - Auto-restart enabled
 
-          ### Documentation
+          ### 📚 Documentation
           - [README.md](https://github.com/${{ github.repository }}/blob/${{ steps.version.outputs.tag }}/README.md)
           - [ARCHITECTURE.md](https://github.com/${{ github.repository }}/blob/${{ steps.version.outputs.tag }}/ARCHITECTURE.md)
-          - [DOCKER_HUB_SETUP.md](https://github.com/${{ github.repository }}/blob/${{ steps.version.outputs.tag }}/DOCKER_HUB_SETUP.md)
-          NOTES
+          EOF
+          
+          sed -i "s/RELEASE_TYPE_PLACEHOLDER/${RELEASE_TYPE}/g" release_notes.md
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
@@ -145,16 +250,11 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Summary
+      - name: Release summary
         run: |
           echo "## 🎉 Release ${{ steps.version.outputs.tag }} Published!" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 📦 Docker Images" >> $GITHUB_STEP_SUMMARY
           echo "- Docker Hub: \`${{ secrets.DOCKER_HUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- GitHub Packages: \`ghcr.io/${{ github.repository }}:${{ steps.version.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 🔗 Links" >> $GITHUB_STEP_SUMMARY
-          echo "- [GitHub Release](https://github.com/${{ github.repository }}/releases/tag/${{ steps.version.outputs.tag }})" >> $GITHUB_STEP_SUMMARY
-          echo "- [Docker Hub](https://hub.docker.com/r/${{ secrets.DOCKER_HUB_USERNAME }}/${{ env.IMAGE_NAME }})" >> $GITHUB_STEP_SUMMARY
-          echo "- [GitHub Packages](https://github.com/${{ github.repository }}/pkgs/container/${{ env.IMAGE_NAME }})" >> $GITHUB_STEP_SUMMARY
 
