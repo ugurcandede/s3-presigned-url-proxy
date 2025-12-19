@@ -1,12 +1,10 @@
 name: Docker Hub Publish
 
 on:
-  push:
-    branches:
-      - master
-    tags:
-      - 'v*'
-  pull_request:
+  workflow_run:
+    workflows: ["Build"]
+    types:
+      - completed
     branches:
       - master
 
@@ -14,8 +12,9 @@ env:
   IMAGE_NAME: s3-presigned-url-proxy
 
 jobs:
-  build-and-push:
+  publish:
     runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     permissions:
       contents: read
       packages: write
@@ -33,32 +32,57 @@ jobs:
           username: ${{ secrets.DOCKER_HUB_USERNAME }}
           password: ${{ secrets.DOCKER_HUB_TOKEN }}
 
+      - name: Get current date for CalVer
+        id: date
+        run: echo "calver=$(date +'%Y.%m.%d')" >> $GITHUB_OUTPUT
+
       - name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@v5
         with:
           images: ${{ secrets.DOCKER_HUB_USERNAME }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=ref,event=branch
-            type=ref,event=pr
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
-            type=raw,value=latest,enable={{is_default_branch}}
-            type=sha,prefix={{branch}}-
+            type=raw,value=latest
+            type=raw,value=v${{ steps.date.outputs.calver }}
+            type=sha,format=short
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
           context: .
           file: ./Dockerfile
-          push: ${{ github.event_name != 'pull_request' }}
+          push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           platforms: linux/amd64,linux/arm64
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Image digest
-        run: echo ${{ steps.meta.outputs.digest }}
+      - name: Create CalVer git tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          TAG="v${{ steps.date.outputs.calver }}"
+          
+          # Check if tag already exists
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists, skipping..."
+          else
+            git tag -a "$TAG" -m "Auto-release $TAG"
+            git push origin "$TAG"
+            echo "✅ Created and pushed tag: $TAG"
+          fi
+
+      - name: Publish summary
+        run: |
+          echo "## 🚀 Docker Hub Publish Successful!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📦 Published Docker Tags:" >> $GITHUB_STEP_SUMMARY
+          echo "- \`latest\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`v${{ steps.date.outputs.calver }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`${GITHUB_SHA:0:7}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🎯 Git Tag Created:" >> $GITHUB_STEP_SUMMARY
+          echo "CalVer tag \`v${{ steps.date.outputs.calver }}\` pushed to trigger release workflow" >> $GITHUB_STEP_SUMMARY
 

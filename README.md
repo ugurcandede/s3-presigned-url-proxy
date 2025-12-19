@@ -1,6 +1,7 @@
 # S3 Pre-signed URL Proxy
 
-[![Docker Hub Publish](https://github.com/ugurcandede/grispi-usercontent-proxy/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/ugurcandede/grispi-usercontent-proxy/actions/workflows/docker-publish.yml)
+[![Build](https://github.com/ugurcandede/s3-presigned-url-proxy/actions/workflows/build.yml/badge.svg)](https://github.com/ugurcandede/s3-presigned-url-proxy/actions/workflows/build.yml)
+[![Docker Hub Publish](https://github.com/ugurcandede/s3-presigned-url-proxy/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/ugurcandede/s3-presigned-url-proxy/actions/workflows/docker-publish.yml)
 [![Docker Hub](https://img.shields.io/docker/v/ugurcandede/s3-presigned-url-proxy?label=Docker%20Hub)](https://hub.docker.com/r/ugurcandede/s3-presigned-url-proxy)
 [![Docker Image Size](https://img.shields.io/docker/image-size/ugurcandede/s3-presigned-url-proxy/latest)](https://hub.docker.com/r/ugurcandede/s3-presigned-url-proxy)
 
@@ -326,7 +327,7 @@ The service logs all requests with the following format:
 
 - Verify credentials in `docker-compose.yml`
 - Ensure IAM user has `s3:GetObject` permission
-- Check logs: `docker-compose logs grispi-url-proxy`
+- Check logs: `docker-compose logs s3-presigned-url-proxy`
 
 ### Files not found in S3
 
@@ -452,4 +453,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Support
 
-For detailed architecture information, see [ARCHITECTURE.md](ARCHITECTURE.md)
+- For detailed architecture information, see [ARCHITECTURE.md](ARCHITECTURE.md)
+- For Docker Hub auto-deploy setup, see [DOCKER_HUB_SETUP.md](DOCKER_HUB_SETUP.md)
+- For GitHub Actions workflows documentation, see [WORKFLOWS.md](WORKFLOWS.md)
