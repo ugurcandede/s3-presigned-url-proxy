@@ -1,7 +1,10 @@
 name: Docker Hub Publish
 
 on:
-  push:
+  workflow_run:
+    workflows: ["Build"]
+    types:
+      - completed
     branches:
       - master
 
@@ -9,8 +12,9 @@ env:
   IMAGE_NAME: s3-presigned-url-proxy
 
 jobs:
-  build-and-push:
+  publish:
     runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     permissions:
       contents: read
       packages: write
@@ -54,6 +58,31 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Image digest
-        run: echo ${{ steps.meta.outputs.digest }}
+      - name: Create CalVer git tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          TAG="v${{ steps.date.outputs.calver }}"
+          
+          # Check if tag already exists
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists, skipping..."
+          else
+            git tag -a "$TAG" -m "Auto-release $TAG"
+            git push origin "$TAG"
+            echo "✅ Created and pushed tag: $TAG"
+          fi
+
+      - name: Publish summary
+        run: |
+          echo "## 🚀 Docker Hub Publish Successful!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📦 Published Docker Tags:" >> $GITHUB_STEP_SUMMARY
+          echo "- \`latest\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`v${{ steps.date.outputs.calver }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`${GITHUB_SHA:0:7}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🎯 Git Tag Created:" >> $GITHUB_STEP_SUMMARY
+          echo "CalVer tag \`v${{ steps.date.outputs.calver }}\` pushed to trigger release workflow" >> $GITHUB_STEP_SUMMARY
 

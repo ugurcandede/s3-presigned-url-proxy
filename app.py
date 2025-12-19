@@ -97,7 +97,7 @@ if __name__ == '__main__':
         logger.error("AWS credentials not set! Please set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY environment variables.")
         exit(1)
 
-    logger.info(f"Starting Grispi URL Proxy Service on port 8088")
+    logger.info(f"Starting Proxy Service on port 8088")
     logger.info(f"AWS Region: {AWS_REGION}, Bucket: {AWS_BUCKET}")
     logger.info("⚠️  LOCAL DEVELOPMENT ONLY - DO NOT USE IN PRODUCTION ⚠️")
 

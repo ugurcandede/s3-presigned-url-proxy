@@ -1,16 +1,16 @@
 name: Build
 
 on:
-  pull_request:
-    branches:
-      - master
   push:
-    branches-ignore:
+    branches:
       - master
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
 
     steps:
       - name: Checkout repository
@@ -25,13 +25,22 @@ jobs:
           context: .
           file: ./Dockerfile
           push: false
-          tags: ${{ github.repository }}:test
+          tags: ${{ github.repository }}:${{ github.sha }}
           platforms: linux/amd64,linux/arm64
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          outputs: type=docker,dest=/tmp/image.tar
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-image
+          path: /tmp/image.tar
+          retention-days: 1
 
       - name: Build summary
         run: |
-          echo "✅ Docker image built successfully"
-          echo "📦 Multi-platform build completed (amd64, arm64)"
+          echo "✅ Docker image built successfully" >> $GITHUB_STEP_SUMMARY
+          echo "📦 Multi-platform build completed (amd64, arm64)" >> $GITHUB_STEP_SUMMARY
+          echo "🔖 Image tag: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
 

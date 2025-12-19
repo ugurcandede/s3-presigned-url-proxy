@@ -1,4 +1,4 @@
-# Git ignore file for Grispi URL Proxy
+# Git ignore file for s3-presigned-url-proxy
 
 # Python
 __pycache__/
