@@ -12,6 +12,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application code
 COPY app.py .
 
+# Copy documentation
+COPY README.md .
+COPY ARCHITECTURE.md .
+
 # Expose port 8088
 EXPOSE 8088
 
