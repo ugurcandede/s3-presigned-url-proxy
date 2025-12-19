@@ -1,0 +1,14 @@
+services:
+  s3-presigned-url-proxy:
+    build: .
+    container_name: s3-presigned-url-proxy
+    ports:
+      - "8087:8088"
+    environment:
+      - AWS_REGION=us-east-1
+      - AWS_BUCKET=your-bucket-name
+      - AWS_ACCESS_KEY_ID=your-access-key-id
+      - AWS_SECRET_ACCESS_KEY=your-secret-access-key
+      - PRESIGNED_URL_EXPIRATION=14400
+    restart: unless-stopped
+
