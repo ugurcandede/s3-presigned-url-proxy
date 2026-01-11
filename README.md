@@ -408,16 +408,16 @@ If you want to use a custom domain instead of `localhost`:
 
 **Linux/Mac:**
 ```bash
-sudo sh -c 'echo "127.0.0.1 usercontent.grispi.local" >> /etc/hosts'
+sudo sh -c 'echo "127.0.0.1 usercontent.development.local" >> /etc/hosts'
 ```
 
 **Windows:**
 Edit `C:\Windows\System32\drivers\etc\hosts` as administrator and add:
 ```
-127.0.0.1 usercontent.grispi.local
+127.0.0.1 usercontent.development.local
 ```
 
-Then access via: `http://usercontent.grispi.local:8087/`
+Then access via: `http://usercontent.development.local:8087/`
 
 ## FAQ
 
@@ -449,9 +449,3 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Support
-
-- For detailed architecture information, see [ARCHITECTURE.md](ARCHITECTURE.md)
-- For Docker Hub auto-deploy setup, see [DOCKER_HUB_SETUP.md](DOCKER_HUB_SETUP.md)
-- For GitHub Actions workflows documentation, see [WORKFLOWS.md](WORKFLOWS.md)

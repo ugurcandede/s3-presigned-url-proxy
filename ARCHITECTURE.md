@@ -4,7 +4,7 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                         LOCAL DEVELOPMENT ENVIRONMENT                    │
+│                         LOCAL DEVELOPMENT ENVIRONMENT                   │
 └─────────────────────────────────────────────────────────────────────────┘
 
 ┌──────────────────┐         ┌──────────────────┐         ┌──────────────┐
@@ -59,7 +59,7 @@ Browser or HTTP client follows the redirect URL and downloads the file directly 
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│ STEP 1: Request from Application                                   │
+│ STEP 1: Request from Application                                    │
 ├─────────────────────────────────────────────────────────────────────┤
 │                                                                     │
 │  GET http://localhost:8087/                                         │
@@ -69,7 +69,7 @@ Browser or HTTP client follows the redirect URL and downloads the file directly 
 └─────────────────────────────────────────────────────────────────────┘
                                 ↓
 ┌─────────────────────────────────────────────────────────────────────┐
-│ STEP 2: Flask Proxy Processing                                     │
+│ STEP 2: Flask Proxy Processing                                      │
 ├─────────────────────────────────────────────────────────────────────┤
 │                                                                     │
 │  1. Extract parameters                                              │
@@ -94,19 +94,19 @@ Browser or HTTP client follows the redirect URL and downloads the file directly 
 └─────────────────────────────────────────────────────────────────────┘
                                 ↓
 ┌─────────────────────────────────────────────────────────────────────┐
-│ STEP 3: HTTP 302 Redirect Response                                 │
+│ STEP 3: HTTP 302 Redirect Response                                  │
 ├─────────────────────────────────────────────────────────────────────┤
 │                                                                     │
 │  HTTP/1.1 302 Found                                                 │
-│  Location: https://your-bucket.s3.us-east-1.amazonaws.com/...      │
+│  Location: https://your-bucket.s3.us-east-1.amazonaws.com/...       │
 │                                                                     │
 └─────────────────────────────────────────────────────────────────────┘
                                 ↓
 ┌─────────────────────────────────────────────────────────────────────┐
-│ STEP 4: Client Follows Redirect                                    │
+│ STEP 4: Client Follows Redirect                                     │
 ├─────────────────────────────────────────────────────────────────────┤
 │                                                                     │
-│  GET https://your-bucket.s3.us-east-1.amazonaws.com/...            │
+│  GET https://your-bucket.s3.us-east-1.amazonaws.com/...             │
 │                                                                     │
 │  → Direct download from S3                                          │
 │  → No proxy involved in file transfer                               │
@@ -185,7 +185,7 @@ Log:      [ERROR] AWS Error: ... error_code=InvalidAccessKeyId
 │                                                                    │
 │  Optional DNS Override:                                            │
 │  /etc/hosts (Linux/Mac) or C:\Windows\System32\drivers\etc\hosts   │
-│  → 127.0.0.1 usercontent.grispi.local                              │
+│  → 127.0.0.1 usercontent.development.local                         │
 │                                                                    │
 └────────────────────────────────────────────────────────────────────┘
                                │
