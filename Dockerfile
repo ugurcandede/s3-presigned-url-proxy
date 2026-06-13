@@ -19,9 +19,8 @@ COPY ARCHITECTURE.md .
 # Expose port 8088
 EXPOSE 8088
 
-# Set environment variables (will be overridden by docker-compose)
-ENV AWS_REGION=us-east-1
-ENV PRESIGNED_URL_EXPIRATION=14400
+# Configuration is provided at runtime via environment variables (see .env / docker-compose.yml).
+# The application falls back to sensible defaults when a variable is unset.
 
 # Run the application
 CMD ["python", "app.py"]

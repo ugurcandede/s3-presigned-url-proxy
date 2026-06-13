@@ -1,16 +1,27 @@
+name: s3proxy
+
 services:
-  s3-presigned-url-proxy:
+  s3proxy:
     build: .
-    container_name: s3-presigned-url-proxy
+    container_name: s3proxy
+    init: true
     ports:
-      - "8087:8088"
+      # Host port is configurable via .env (PROXY_HOST_PORT); container always listens on 8088.
+      - "${PROXY_HOST_PORT:-8087}:8088"
     environment:
       - AWS_REGION=${AWS_REGION:-us-east-1}
       - AWS_BUCKET=${AWS_BUCKET}
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
       - PRESIGNED_URL_EXPIRATION=${PRESIGNED_URL_EXPIRATION:-14400}
+      - REQUIRED_PARAMS=${REQUIRED_PARAMS:-objectkey}
+      - OBJECT_KEY_PARAM=${OBJECT_KEY_PARAM:-objectkey}
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     cpus: 0.25
     mem_limit: 256m
     mem_reservation: 128m

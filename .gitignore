@@ -24,9 +24,7 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
-
-# Docker
-.dockerignore
+.venv/
 
 # IDE
 .vscode/
