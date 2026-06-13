@@ -5,8 +5,7 @@ on:
     branches:
       - master
     tags:
-      - 'v*.*.*'      # SemVer: v1.0.0
-      - 'v20*.*.*'    # CalVer: v2025.12.19
+      - 'v20*'        # CalVer: v2026.06.13.1430
 
 env:
   IMAGE_NAME: s3-presigned-url-proxy
@@ -17,8 +16,9 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
     permissions:
-      contents: write
-      packages: write
+      contents: read
+    outputs:
+      calver: ${{ steps.date.outputs.calver }}
 
     steps:
       - name: Checkout repository
@@ -37,7 +37,7 @@ jobs:
 
       - name: Get current date for CalVer
         id: date
-        run: echo "calver=$(date +'%Y.%m.%d')" >> $GITHUB_OUTPUT
+        run: echo "calver=$(date +'%Y.%m.%d.%H%M')" >> $GITHUB_OUTPUT
 
       - name: Extract metadata (tags, labels) for Docker
         id: meta
@@ -47,7 +47,6 @@ jobs:
           tags: |
             type=raw,value=latest
             type=raw,value=v${{ steps.date.outputs.calver }}
-            type=sha,format=short
 
       - name: Show tags to be published
         run: |
@@ -73,7 +72,6 @@ jobs:
           echo "### 📦 Published Docker Tags:" >> $GITHUB_STEP_SUMMARY
           echo "- \`latest\`" >> $GITHUB_STEP_SUMMARY
           echo "- \`v${{ steps.date.outputs.calver }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- \`${GITHUB_SHA:0:7}\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "Multi-platform build completed (amd64, arm64)" >> $GITHUB_STEP_SUMMARY
 
@@ -84,37 +82,26 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
     permissions:
       contents: write
-      packages: write
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Get current date for CalVer
-        id: date
-        run: echo "calver=$(date +'%Y.%m.%d')" >> $GITHUB_OUTPUT
-
-      - name: Extract version from tag
+      - name: Extract version
         id: version
         run: |
-          # Use CalVer from current date
-          VERSION="${{ steps.date.outputs.calver }}"
+          # CalVer is computed once in build-and-deploy and shared via job output
+          VERSION="${{ needs.build-and-deploy.outputs.calver }}"
           TAG="v${VERSION}"
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "tag=$TAG" >> $GITHUB_OUTPUT
-          echo "type=calver" >> $GITHUB_OUTPUT
-          echo "is_calver=true" >> $GITHUB_OUTPUT
           echo "📅 Using CalVer: $TAG"
 
       - name: Generate release notes
         id: release_notes
         run: |
-          if [[ "${{ steps.version.outputs.is_calver }}" == "true" ]]; then
-            RELEASE_TYPE="📅 CalVer Auto-Release"
-          else
-            RELEASE_TYPE="🔢 SemVer Release"
-          fi
-          
+          RELEASE_TYPE="📅 CalVer Auto-Release"
+
           cat > release_notes.md << 'EOF'
           ## 🚀 Release ${{ steps.version.outputs.tag }}
           
@@ -126,12 +113,6 @@ jobs:
           ```bash
           docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
           docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/${{ env.IMAGE_NAME }}:latest
-          ```
-
-          **GitHub Container Registry:**
-          ```bash
-          docker pull ghcr.io/${{ github.repository }}:${{ steps.version.outputs.version }}
-          docker pull ghcr.io/${{ github.repository }}:latest
           ```
 
           ### 🚀 Quick Start
@@ -194,4 +175,3 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 📦 Docker Images" >> $GITHUB_STEP_SUMMARY
           echo "- Docker Hub: \`${{ secrets.DOCKER_HUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- GitHub Packages: \`ghcr.io/${{ github.repository }}:${{ steps.version.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
