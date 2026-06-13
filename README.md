@@ -1,451 +1,163 @@
-# S3 Pre-signed URL Proxy
+<div align="center">
+  <img src="docs/assets/logo.svg" alt="s3-presigned-url-proxy" width="100" height="100">
+  <h1>S3 Pre-signed URL Proxy</h1>
+  <p><em>Point a URL at it, get a pre-signed S3 redirect back.</em></p>
+  <p>A tiny, fully env-configurable Flask service that turns an HTTP request into an AWS S3 pre-signed URL and 302-redirects to it. One container, no AWS SDK wiring in your app.</p>
+  <br>
 
-[![Build and Deploy](https://github.com/ugurcandede/s3-presigned-url-proxy/actions/workflows/deploy.yml/badge.svg)](https://github.com/ugurcandede/s3-presigned-url-proxy/actions/workflows/deploy.yml)
-[![Docker Hub](https://img.shields.io/docker/v/ugurcandede/s3-presigned-url-proxy?label=Docker%20Hub)](https://hub.docker.com/r/ugurcandede/s3-presigned-url-proxy)
-[![Docker Image Size](https://img.shields.io/docker/image-size/ugurcandede/s3-presigned-url-proxy/latest)](https://hub.docker.com/r/ugurcandede/s3-presigned-url-proxy)
+![Python](https://img.shields.io/badge/Python-3.11-3776AB?style=flat-square&logo=python&logoColor=white)
+![Flask](https://img.shields.io/badge/Flask-3.1-000000?style=flat-square&logo=flask&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-ready-2496ED?style=flat-square&logo=docker&logoColor=white)
+![AWS S3](https://img.shields.io/badge/AWS-S3-FF9900?style=flat-square&logo=amazons3&logoColor=white)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE)
 
-⚠️ **LOCAL DEVELOPMENT ONLY - NOT FOR PRODUCTION USE** ⚠️
+</div>
 
-A lightweight Python Flask service that proxies HTTP requests to AWS S3 pre-signed URLs with automatic 302 redirects. Perfect for local development environments where you need quick access to S3-stored files without implementing full AWS SDK integration.
+> ⚠️ **Local development only.** No auth, no HTTPS, runs the Flask dev server. Don't expose it to the internet — in production, call the AWS SDK from your app instead.
 
-## Overview
+## What it solves
 
-This service intercepts HTTP requests and converts them to time-limited AWS S3 pre-signed URLs. Simply pass the S3 object key as a query parameter, and get a secure, temporary URL that expires after 4 hours (configurable).
+In local development you often need temporary access to files stored in S3 — previews, attachments, user content — without wiring the AWS SDK into every service and frontend. This proxy centralizes that: your app builds a plain URL with the object key, the proxy generates a time-limited S3 pre-signed URL, and returns a `302` so the client downloads straight from S3. The proxy never touches the file bytes.
 
-**URL Format:** `http://localhost:8087/?tenant=TENANT_ID&objectkey=OBJECT_KEY`
+Behavior is driven entirely by environment variables, so it isn't tied to any one project — name your key parameter, require whatever query params you want, point it at any bucket.
 
-**Use Cases:**
-- Local development environments
-- Quick prototyping with S3-stored files
-- Testing file access without complex AWS integration
-- Development servers that need temporary S3 access
-
-## Features
-
-- 🚀 **Simple & Fast** - Single Flask container, < 100ms response time
-- 🔄 **Automatic Redirects** - HTTP 302 to S3 pre-signed URLs
-- 🐳 **Fully Containerized** - Docker Compose for easy deployment
-- 📝 **Comprehensive Logging** - Track all requests and errors
-- ✅ **Health Check** - Built-in `/health` endpoint with automatic Docker health monitoring
-- 🔐 **Secure** - Pre-signed URLs with 4-hour expiration, read-only filesystem
-- 🌐 **Platform Independent** - Works on Windows, Linux, and macOS
-- 🛡️ **Hardened Security** - Read-only container filesystem with tmpfs for temporary files
-
-## Quick Start
-
-### Prerequisites
-
-- Docker & Docker Compose installed
-- AWS S3 bucket access credentials
-
-### Option A: Using Docker Hub (Recommended)
-
-Pull the pre-built image from Docker Hub:
-
-```bash
-docker pull ugurcandede/s3-presigned-url-proxy:latest
-```
-
-Then use the provided `docker-compose.example.yml` or create your own `docker-compose.yml`:
-
-```yaml
-# Option 1: Use the example file directly
-docker-compose -f docker-compose.example.yml up -d
-
-# Option 2: Copy and customize
-cp docker-compose.example.yml docker-compose.yml
-# Edit docker-compose.yml with your AWS credentials
-nano docker-compose.yml  # or use your preferred editor
-
-# Then start the service
-docker-compose up -d
-```
-> Note: Make sure to update the AWS credentials in the compose file before starting the service.
-
-### Option B: Build from Source
-
-### 1. Clone and Setup
+## Quick start
 
 ```bash
 git clone https://github.com/ugurcandede/s3-presigned-url-proxy.git
 cd s3-presigned-url-proxy
-```
-
-### 2. Configure Environment Variables
-
-Create a `.env` file from the example:
-
-```bash
-cp .env.example .env
-```
-
-Edit `.env` and set your AWS credentials:
-
-```env
-AWS_REGION=us-east-1
-AWS_BUCKET=your-bucket-name
-AWS_ACCESS_KEY_ID=your-access-key-id
-AWS_SECRET_ACCESS_KEY=your-secret-access-key
-PRESIGNED_URL_EXPIRATION=14400
-```
-
-**Note:** Never commit the `.env` file to version control!
-
-### 3. Start the Service
-
-```bash
+cp .env.example .env          # set AWS_BUCKET + credentials
 docker-compose up -d
 ```
 
-### 3. Verify
+`docker-compose.yml` reads every value from `.env` — there is nothing else to edit.
+
+### Without cloning (published image)
 
 ```bash
-curl http://localhost:8087/health
+docker run -d -p 8087:8088 --env-file .env ugurcandede/s3-presigned-url-proxy:latest
 ```
 
-Expected response:
-```json
-{"status":"ok"}
-```
-
-### 4. Test with a Request
+### Verify
 
 ```bash
-curl -I "http://localhost:8087/?tenant=test&objectkey=files/document.pdf"
+curl http://localhost:8087/health                          # {"status":"ok"}
+curl -I "http://localhost:8087/?objectkey=files/doc.pdf"   # 302 -> https://...s3...
 ```
 
-Expected: HTTP 302 redirect to AWS S3 pre-signed URL
+## Prerequisites
 
-## Usage
-
-### URL Structure
-
-```
-http://localhost:8087/?tenant=TENANT_ID&objectkey=OBJECT_KEY
-```
-
-**Parameters:**
-- `tenant` (required) - Tenant identifier
-- `objectkey` (required) - S3 object key (file path in bucket)
-
-### Example Request
-
-```bash
-# Using curl
-curl -I "http://localhost:8087/?tenant=mycompany&objectkey=attachments/2024/12/report.pdf"
-
-# Response
-HTTP/1.1 302 FOUND
-Location: https://your-bucket.s3.amazonaws.com/attachments/2024/12/report.pdf?...
-```
-
-### Integration in Your Application
-
-**Java/Spring Boot:**
-```yaml
-# application-dev.yml
-user-content:
-  base-url: http://localhost:8087/
-```
-
-**Node.js/Express:**
-```javascript
-const userContentBaseUrl = 'http://localhost:8087/';
-const url = `${userContentBaseUrl}?tenant=${tenantId}&objectkey=${objectKey}`;
-```
-
-**Python:**
-```python
-USER_CONTENT_BASE_URL = 'http://localhost:8087/'
-url = f'{USER_CONTENT_BASE_URL}?tenant={tenant_id}&objectkey={object_key}'
-```
-
-## API Endpoints
-
-### `GET /health`
-
-Health check endpoint to verify service status.
-
-**Response:**
-```json
-{"status":"ok"}
-```
-
-### `GET /?tenant=X&objectkey=Y`
-
-Main proxy endpoint that generates S3 pre-signed URL and returns 302 redirect.
-
-**Success Response:**
-- Status: `302 Found`
-- Header: `Location: https://...s3.amazonaws.com/...`
-
-**Error Responses:**
-
-Missing parameter:
-```json
-{
-  "error": "Missing required parameter: tenant"
-}
-```
-
-AWS/S3 error:
-```json
-{
-  "error": "Failed to generate S3 URL",
-  "details": "Error message"
-}
-```
-
-## Architecture
-
-### Simple Single-Container Design
-
-```
-Application → http://localhost:8087/?tenant=X&objectkey=Y
-           ↓
-    Docker Container (Flask App)
-    - Port 8088 internal
-    - Port mapping: 8087:8088
-           ↓
-    AWS S3 Pre-signed URL Generation
-           ↓
-    HTTP 302 Redirect
-           ↓
-    Browser/Client → Direct S3 Download
-```
-
-### Port Configuration
-
-- **Host Port:** 8087 (external access)
-- **Container Port:** 8088 (Flask internal)
-- **Why 8087?** Port 8088 was already in use on the development machine
-
-For detailed architecture diagrams, see [ARCHITECTURE.md](ARCHITECTURE.md)
-
-## Docker Commands
-
-```bash
-# Start service
-docker-compose up -d
-
-# Stop service
-docker-compose down
-
-# View logs
-docker-compose logs -f
-
-# Check status
-docker-compose ps
-
-# Restart service
-docker-compose restart
-
-# Rebuild after code changes
-docker-compose up -d --build
-```
+- **Docker & Docker Compose**, or **Python 3.11** to run from source.
+- An **S3 bucket** and credentials with `s3:GetObject`.
+- AWS credentials via any standard source: environment variables, `~/.aws/credentials`, SSO, or an IAM role. The service starts as long as the boto3 chain resolves credentials.
 
 ## Configuration
 
-All configuration is done via environment variables in `docker-compose.yml`:
+All configuration is via environment variables (see `.env.example`).
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `AWS_REGION` | - | AWS region (e.g., `us-east-1`) |
-| `AWS_BUCKET` | - | S3 bucket name |
-| `AWS_ACCESS_KEY_ID` | - | AWS access key |
-| `AWS_SECRET_ACCESS_KEY` | - | AWS secret key |
+| `AWS_BUCKET` | — | S3 bucket name (required) |
+| `AWS_REGION` | `us-east-1` | AWS region |
+| `AWS_ACCESS_KEY_ID` | — | Access key (optional if creds come from `~/.aws`/IAM role) |
+| `AWS_SECRET_ACCESS_KEY` | — | Secret key (optional, as above) |
 | `PRESIGNED_URL_EXPIRATION` | `14400` | URL validity in seconds (4 hours) |
+| `OBJECT_KEY_PARAM` | `objectkey` | Which query param's value is used as the S3 object key |
+| `REQUIRED_PARAMS` | `objectkey` | Comma-separated query params that must be present |
+| `PROXY_HOST_PORT` | `8087` | Host port published by docker-compose (container always listens on 8088) |
 
-### Docker Resource Limits
+> `PROXY_HOST_PORT` is used only by `docker-compose.yml` to map the host port; it is not read by the app. Keep it off your other services' ports (e.g. a UI on `8088` → proxy on `8087`).
 
-The container has the following resource constraints for optimal performance:
-
-- **CPU Limit:** 0.25 cores (25% of one CPU)
-- **Memory Limit:** 256 MB maximum
-- **Memory Reservation:** 128 MB guaranteed minimum
-- **Read-Only Filesystem:** Yes (with tmpfs for /tmp and /run)
-- **Security:** `no-new-privileges` enabled
-
-### Health Check Configuration
-
-The container includes automatic health monitoring:
-
-- **Check Interval:** Every 30 seconds
-- **Timeout:** 10 seconds per check
-- **Retries:** 3 failed checks before marking unhealthy
-- **Start Period:** 40 seconds grace period on startup
-- **Method:** Python urllib health endpoint test
-
-View health status: `docker ps` (shows "healthy" or "unhealthy")
-
-## Logging
-
-The service logs all requests with the following format:
+## Usage
 
 ```
-[TIMESTAMP] [LEVEL] message
+GET http://localhost:8087/?objectkey=<S3_OBJECT_KEY>
 ```
 
-**Example logs:**
+The value of the `OBJECT_KEY_PARAM` query parameter is used as the S3 key. On success you get a `302` redirect to a pre-signed URL; the client follows it and downloads directly from S3.
+
+```bash
+curl -I "http://localhost:8087/?objectkey=attachments/2024/report.pdf"
+
+HTTP/1.1 302 FOUND
+Location: https://your-bucket.s3.amazonaws.com/attachments/2024/report.pdf?X-Amz-...
 ```
-[2024-12-19 10:30:45] [INFO] Incoming request: tenant=test objectkey=file.pdf path=
-[2024-12-19 10:30:45] [INFO] tenant=test objectkey=file.pdf url_generated=True
-[2024-12-19 10:30:45] [INFO] 172.25.0.1 - - [19/Dec/2024 10:30:45] "GET /?tenant=test&objectkey=file.pdf HTTP/1.1" 302 -
+
+Drop-in from your app:
+
+```javascript
+// Node / Express
+const url = `http://localhost:8087/?objectkey=${encodeURIComponent(objectKey)}`;
 ```
 
-## Troubleshooting
+```python
+# Python
+url = f"http://localhost:8087/?objectkey={object_key}"
+```
 
-### Service won't start
+### Requiring additional parameters
 
-1. Check if Docker is running:
-   ```bash
-   docker ps
-   ```
+`REQUIRED_PARAMS` lets a deployment enforce extra query params beyond the key. They are validated and logged, but do not affect the bucket or key — useful for tagging requests (e.g. a tenant id):
 
-2. Check logs for errors:
-   ```bash
-   docker-compose logs
-   ```
+```bash
+REQUIRED_PARAMS=tenant,objectkey
+```
 
-3. Verify port 8087 is not in use:
-   ```bash
-   # Linux/Mac
-   lsof -i :8087
-   
-   # Windows
-   netstat -ano | findstr :8087
-   ```
+```bash
+curl -I "http://localhost:8087/?tenant=acme&objectkey=files/doc.pdf"   # 302
+curl -i  "http://localhost:8087/?objectkey=files/doc.pdf"              # 400 Missing required parameter: tenant
+```
 
-### "Connection refused" error
+## Endpoints
 
-- Ensure the container is running: `docker-compose ps`
-- Restart the service: `docker-compose restart`
-- Check firewall settings
+| Method | Path | Response |
+|--------|------|----------|
+| `GET` | `/health` | `200 {"status":"ok"}` |
+| `GET` | `/?objectkey=…` | `302` redirect to the pre-signed URL |
 
-### AWS credentials error
+| Status | When |
+|--------|------|
+| `302` | Pre-signed URL generated — `Location` header points to S3 |
+| `400` | A required query parameter is missing |
+| `500` | AWS/S3 error or unexpected failure |
 
-- Verify credentials in `docker-compose.yml`
-- Ensure IAM user has `s3:GetObject` permission
-- Check logs: `docker-compose logs s3-presigned-url-proxy`
+## Documentation
 
-### Files not found in S3
+- [ARCHITECTURE.md](ARCHITECTURE.md) — request flow, data flow, and deployment diagrams.
 
-- Verify the `objectkey` matches the actual S3 file path
-- Check S3 bucket permissions
-- Test with AWS CLI: `aws s3 ls s3://your-bucket/path/`
-
-## Security Notes
-
-⚠️ **IMPORTANT:**
-
-- **LOCAL DEVELOPMENT ONLY** - Do not use in production/staging
-- **Hardcoded Credentials** - For dev convenience only
-- **No Authentication** - Service has no auth layer
-- **No HTTPS** - Uses plain HTTP
-- **Port Exposure** - Only expose to localhost, never to internet
-
-**For Production:**
-- Use AWS SDK directly in your application
-- Implement proper authentication/authorization
-- Use environment variables or secrets management
-- Deploy behind HTTPS/TLS
-- Use production WSGI server (not Flask dev server)
-
-## Technical Details
-
-- **Language:** Python 3.11
-- **Framework:** Flask 3.0.0
-- **AWS SDK:** boto3 1.34.0
-- **Container Base:** python:3.11-slim
-- **Port Mapping:** 8087 (host) → 8088 (container)
-- **Pre-signed URL Expiration:** 14400 seconds (4 hours)
-- **Memory Usage:** ~50-100 MB
-- **Response Time:** < 100ms (URL generation only)
-
-## Project Structure
+## Layout
 
 ```
 s3-presigned-url-proxy/
-├── app.py                        # Flask application
-├── Dockerfile                   # Docker image definition
-├── docker-compose.yml           # Docker Compose configuration
-├── docker-compose.example.yml   # Example configuration
-├── requirements.txt             # Python dependencies
-├── .env.example                 # Example environment variables
-├── .gitignore                   # Git ignore rules
-├── LICENSE                      # MIT License
-├── ARCHITECTURE.md              # Detailed architecture diagrams
-└── README.md                    # This file
+├── app.py                       # Flask service (single file)
+├── test_app.py                  # pytest suite
+├── requirements.txt             # runtime deps (Flask, boto3)
+├── requirements-dev.txt         # dev deps (+ pytest)
+├── Dockerfile
+├── docker-compose.yml           # reads values from .env
+├── .env.example
+├── ARCHITECTURE.md
+├── docs/assets/logo.svg
+└── README.md
 ```
 
 ## Testing
 
-Use the included test script:
-
-**Windows:**
 ```bash
-test.bat
+pip install -r requirements-dev.txt
+pytest
 ```
 
-**Linux/Mac:**
-```bash
-# Health check
-curl http://localhost:8087/health
+The suite stubs the AWS call, so no credentials or network are needed.
 
-# Proxy request (show headers)
-curl -I "http://localhost:8087/?tenant=test&objectkey=test.pdf"
+## Notes and limitations
 
-# Full redirect test
-curl -L "http://localhost:8087/?tenant=test&objectkey=test.pdf"
-
-# Error test (missing parameter)
-curl "http://localhost:8087/?tenant=test"
-```
-
-## Optional: Custom Domain
-
-If you want to use a custom domain instead of `localhost`:
-
-**Linux/Mac:**
-```bash
-sudo sh -c 'echo "127.0.0.1 usercontent.development.local" >> /etc/hosts'
-```
-
-**Windows:**
-Edit `C:\Windows\System32\drivers\etc\hosts` as administrator and add:
-```
-127.0.0.1 usercontent.development.local
-```
-
-Then access via: `http://usercontent.development.local:8087/`
-
-## FAQ
-
-**Q: Why port 8087 instead of 8088?**  
-A: Port 8088 was already in use on the development machine.
-
-**Q: How long are pre-signed URLs valid?**  
-A: Default is 14400 seconds (4 hours). Configure via `PRESIGNED_URL_EXPIRATION`.
-
-**Q: Can I use this in production?**  
-A: No! This is for local development only. Use AWS SDK directly in production.
-
-**Q: Does this work with multiple tenants?**  
-A: Yes, the tenant parameter is logged but all tenants use the same S3 bucket.
-
-**Q: What S3 permissions are needed?**  
-A: Minimum required: `s3:GetObject` on the bucket.
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+- **Local development only** — no authentication, no HTTPS, Flask's dev server. Anyone who can reach the port can sign a URL for any key in the bucket.
+- **Single bucket.** All requests resolve against `AWS_BUCKET`; there is no per-request bucket or tenant isolation.
+- **Object key from a query param only** — there is no path-based key form.
+- The container runs hardened under Docker Compose (read-only filesystem with tmpfs, `no-new-privileges`, CPU/memory limits).
+- The host port is `8087` (mapped to the container's `8088`); running from source listens on `8088` directly.
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+MIT © Ugurcan Dede — see [LICENSE](LICENSE).
