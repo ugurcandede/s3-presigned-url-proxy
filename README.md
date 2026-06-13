@@ -174,5 +174,5 @@ MIT © Ugurcan Dede — see [LICENSE](LICENSE).
 </p>
 
 <p align="center">
-  <sub>Not affiliated with aws, aws is </sub>
+    <sub>Not affiliated with Amazon Web Services. "AWS" and "Amazon S3" are trademarks of Amazon.com, Inc. or its affiliates.</sub>                       
 </p>
