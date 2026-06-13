@@ -6,6 +6,11 @@ on:
       - master
     tags:
       - 'v20*'        # CalVer: v2026.06.13.1430
+    # Docs-only changes shouldn't build a new image or cut a release.
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'LICENSE'
 
 env:
   IMAGE_NAME: s3-presigned-url-proxy
