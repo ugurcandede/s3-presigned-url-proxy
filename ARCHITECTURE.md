@@ -32,13 +32,18 @@
 
 ### 1. Application Creates Request
 ```
-URL: http://localhost:8087/?tenant=mycompany&objectkey=files/doc.pdf
+URL: http://localhost:8087/?objectkey=files/doc.pdf
 ```
 
 ### 2. Flask Proxy Service Processes
-- Parses query parameters (tenant, objectkey)
+- Reads the object key from the query param named by `OBJECT_KEY_PARAM` (default `objectkey`)
+- Validates that every param in `REQUIRED_PARAMS` is present (default `objectkey`)
 - Generates S3 pre-signed URL using AWS boto3
 - Creates URL with 240 minute validity
+
+> Extra required params (e.g. `tenant`) can be enforced by listing them in `REQUIRED_PARAMS`
+> (e.g. `REQUIRED_PARAMS=tenant,objectkey`). They are validated and logged but do not affect
+> bucket or key selection.
 
 ### 3. HTTP 302 Redirect Response
 ```
@@ -63,8 +68,7 @@ Browser or HTTP client follows the redirect URL and downloads the file directly 
 ├─────────────────────────────────────────────────────────────────────┤
 │                                                                     │
 │  GET http://localhost:8087/                                         │
-│      ?tenant=mycompany                                              │
-│      &objectkey=attachments/2024/12/file.pdf                        │
+│      ?objectkey=attachments/2024/12/file.pdf                        │
 │                                                                     │
 └─────────────────────────────────────────────────────────────────────┘
                                 ↓
@@ -72,11 +76,11 @@ Browser or HTTP client follows the redirect URL and downloads the file directly 
 │ STEP 2: Flask Proxy Processing                                      │
 ├─────────────────────────────────────────────────────────────────────┤
 │                                                                     │
-│  1. Extract parameters                                              │
-│     - tenant: "mycompany"                                           │
+│  1. Extract object key from OBJECT_KEY_PARAM (default objectkey)    │
 │     - objectkey: "attachments/2024/12/file.pdf"                     │
 │                                                                     │
-│  2. Validate parameters (both required)                             │
+│  2. Validate every param listed in REQUIRED_PARAMS                  │
+│     (default: objectkey)                                            │
 │                                                                     │
 │  3. Call AWS S3 boto3                                               │
 │     s3_client.generate_presigned_url(                               │
@@ -89,7 +93,7 @@ Browser or HTTP client follows the redirect URL and downloads the file directly 
 │     )                                                               │
 │                                                                     │
 │  4. Log the request                                                 │
-│     [INFO] tenant=mycompany objectkey=... url_generated=True        │
+│     [INFO] key=... url_generated=True                               │
 │                                                                     │
 └─────────────────────────────────────────────────────────────────────┘
                                 ↓
@@ -119,21 +123,21 @@ Browser or HTTP client follows the redirect URL and downloads the file directly 
 
 ### Missing Parameter
 ```
-Request:  GET http://localhost:8087/?tenant=mycompany
+Request:  GET http://localhost:8087/
 Response: 400 Bad Request
 Body:     {"error": "Missing required parameter: objectkey"}
 ```
 
 ### Invalid S3 Key
 ```
-Request:  GET http://localhost:8087/?tenant=x&objectkey=nonexistent.pdf
+Request:  GET http://localhost:8087/?objectkey=nonexistent.pdf
 Response: 500 Internal Server Error
 Body:     {"error": "Failed to generate S3 URL", "details": "..."}
 ```
 
 ### AWS Credentials Error
 ```
-Request:  GET http://localhost:8087/?tenant=x&objectkey=file.pdf
+Request:  GET http://localhost:8087/?objectkey=file.pdf
 Response: 500 Internal Server Error
 Body:     {"error": "Internal server error", "details": "..."}
 Log:      [ERROR] AWS Error: ... error_code=InvalidAccessKeyId
@@ -155,8 +159,8 @@ Log:      [ERROR] AWS Error: ... error_code=InvalidAccessKeyId
 │  │  ├─────────────────────────────────────────────────┤      │  │
 │  │  │                                                 │      │  │
 │  │  │  Flask App (app.py)                             │      │  │
-│  │  │  ├─ Flask 3.0.0                                 │      │  │
-│  │  │  ├─ boto3 1.34.0                                │      │  │
+│  │  │  ├─ Flask 3.1.3                                 │      │  │
+│  │  │  ├─ boto3 1.43.29                               │      │  │
 │  │  │  └─ Listens on 0.0.0.0:8088                     │      │  │
 │  │  │                                                 │      │  │
 │  │  └─────────────────────────────────────────────────┘      │  │
@@ -185,7 +189,7 @@ Log:      [ERROR] AWS Error: ... error_code=InvalidAccessKeyId
 │                                                                    │
 │  Optional DNS Override:                                            │
 │  /etc/hosts (Linux/Mac) or C:\Windows\System32\drivers\etc\hosts   │
-│  → 127.0.0.1 usercontent.development.local                         │
+│  → 127.0.0.1 s3proxy.local                                         │
 │                                                                    │
 └────────────────────────────────────────────────────────────────────┘
                                │
@@ -208,8 +212,8 @@ Application       Flask Proxy         AWS S3            Browser/Client
    │                  │                  │                     │
    │ 1. GET Request   │                  │                     │
    ├─────────────────►│                  │                     │
-   │ ?tenant=X        │                  │                     │
-   │ &objectkey=Y     │                  │                     │
+   │ ?objectkey=Y     │                  │                     │
+   │                  │                  │                     │
    │                  │                  │                     │
    │                  │ 2. Generate      │                     │
    │                  │    Pre-signed URL│                     │
@@ -283,8 +287,8 @@ Application       Flask Proxy         AWS S3            Browser/Client
 ```
 Log Level         Message Type              Example
 ─────────────────────────────────────────────────────────────────
-INFO              Successful requests       tenant=X objectkey=Y url_generated=True
-WARNING           Missing parameters        Missing 'tenant' parameter
+INFO              Successful requests       key=Y url_generated=True
+WARNING           Missing parameters        Missing required parameter: objectkey
 ERROR             AWS errors                AWS Error: error_code=NoSuchKey
 ERROR             Unexpected errors         Unexpected error: exception=...
 ```
