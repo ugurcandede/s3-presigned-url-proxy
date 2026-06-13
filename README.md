@@ -158,6 +158,21 @@ The suite stubs the AWS call, so no credentials or network are needed.
 - The container runs hardened under Docker Compose (read-only filesystem with tmpfs, `no-new-privileges`, CPU/memory limits).
 - The host port is `8087` (mapped to the container's `8088`); running from source listens on `8088` directly.
 
+---
+
+
 ## License
 
 MIT © Ugurcan Dede — see [LICENSE](LICENSE).
+
+---
+
+<p align="center">
+   <a href="https://github.com/ugurcandede">
+    <img src="https://img.shields.io/badge/Built%20with%20%E2%9D%A4%20by-@ugurcandede-181717?logo=github&logoColor=white" alt="Built with love by @ugurcandede">
+  </a>
+</p>
+
+<p align="center">
+  <sub>Not affiliated with aws, aws is </sub>
+</p>
