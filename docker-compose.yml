@@ -16,6 +16,8 @@ services:
       - PRESIGNED_URL_EXPIRATION=${PRESIGNED_URL_EXPIRATION:-14400}
       - REQUIRED_PARAMS=${REQUIRED_PARAMS:-objectkey}
       - OBJECT_KEY_PARAM=${OBJECT_KEY_PARAM:-objectkey}
+      - PASSTHROUGH_PORT=${PASSTHROUGH_PORT:-}
+      - PASSTHROUGH_HOSTS=${PASSTHROUGH_HOSTS:-}
     restart: unless-stopped
     logging:
       driver: json-file

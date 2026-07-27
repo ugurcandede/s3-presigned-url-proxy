@@ -123,10 +123,27 @@ Browser or HTTP client follows the redirect URL and downloads the file directly 
 
 ### Missing Parameter
 ```
-Request:  GET http://localhost:8087/
+Request:  GET http://localhost:8087/?something=acme
 Response: 400 Bad Request
 Body:     {"error": "Missing required parameter: objectkey"}
 ```
+
+A request carrying *some* of the proxy's params is malformed and gets the 400 above.
+A request carrying *none* of them is not addressed to this proxy at all: with
+PASSTHROUGH_PORT set it is handed to the app sharing the hostname (307), otherwise it
+gets the same 400.
+
+### Passthrough
+```
+Request:  GET http://localhost:8087/download/file?id=xxx-yyy-zzz
+Response: 307 Temporary Redirect
+Location: http://localhost:8088/download/file?id=xxx-yyy-zzz
+```
+
+The target host comes from the request's own `Host` header and must be covered by
+`PASSTHROUGH_HOSTS` — an entry matches that host or any subdomain of it, and a bare `*`
+matches anything. An uncovered host gets a 400; a `PASSTHROUGH_PORT` equal to the port
+the request arrived on gets a 500 instead of looping back on itself.
 
 ### Invalid S3 Key
 ```
@@ -160,7 +177,7 @@ Log:      [ERROR] AWS Error: ... error_code=InvalidAccessKeyId
 │  │  │                                                 │      │  │
 │  │  │  Flask App (app.py)                             │      │  │
 │  │  │  ├─ Flask 3.1.3                                 │      │  │
-│  │  │  ├─ boto3 1.43.29                               │      │  │
+│  │  │  ├─ boto3 1.43.56                               │      │  │
 │  │  │  └─ Listens on 0.0.0.0:8088                     │      │  │
 │  │  │                                                 │      │  │
 │  │  └─────────────────────────────────────────────────┘      │  │
@@ -253,6 +270,7 @@ Application       Flask Proxy         AWS S3            Browser/Client
 │ Layer 2: Application Security                                      │
 ├────────────────────────────────────────────────────────────────────┤
 │ ✓ Input validation (required parameters)                           │
+│ ✓ Passthrough target host allowlist (PASSTHROUGH_HOSTS)            │
 │ ✓ Error handling (no sensitive data in errors)                     │
 │ ✓ Logging without credentials                                      │
 └────────────────────────────────────────────────────────────────────┘
@@ -288,7 +306,9 @@ Application       Flask Proxy         AWS S3            Browser/Client
 Log Level         Message Type              Example
 ─────────────────────────────────────────────────────────────────
 INFO              Successful requests       key=Y url_generated=True
+INFO              Passthrough (path only)   Passthrough: path=/download/file -> port 8088
 WARNING           Missing parameters        Missing required parameter: objectkey
+WARNING           Host not in allowlist     Passthrough refused: host=... not covered by ...
 ERROR             AWS errors                AWS Error: error_code=NoSuchKey
 ERROR             Unexpected errors         Unexpected error: exception=...
 ```
