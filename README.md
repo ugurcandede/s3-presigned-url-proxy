@@ -55,17 +55,19 @@ curl -I "http://localhost:8087/?objectkey=files/doc.pdf"   # 302 -> https://...s
 
 All configuration is via environment variables (see `.env.example`).
 
-| Variable                   | Default     | Description                                                                                                       |
-|----------------------------|-------------|-------------------------------------------------------------------------------------------------------------------|
-| `AWS_BUCKET`               | —           | S3 bucket name (required)                                                                                         |
-| `AWS_REGION`               | `us-east-1` | AWS region                                                                                                        |
-| `AWS_ACCESS_KEY_ID`        | —           | Access key (optional if creds come from `~/.aws`/IAM role)                                                        |
-| `AWS_SECRET_ACCESS_KEY`    | —           | Secret key (optional, as above)                                                                                   |
-| `PRESIGNED_URL_EXPIRATION` | `14400`     | URL validity in seconds (4 hours)                                                                                 |
-| `OBJECT_KEY_PARAM`         | `objectkey` | Which query param's value is used as the S3 object key                                                            |
-| `REQUIRED_PARAMS`          | `objectkey` | Comma-separated query params that must be present                                                                 |
-| `PASSTHROUGH_PORT`         | —           | If set, requests missing `REQUIRED_PARAMS` are redirected to the same URL on this port instead of returning `400` |
-| `PROXY_HOST_PORT`          | `8087`      | Host port published by docker-compose (container always listens on 8088)                                          |
+| Variable                   | Default     | Description                                                                                                                                                     |
+|----------------------------|-------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `AWS_BUCKET`               | —           | S3 bucket name (required)                                                                                                                                       |
+| `AWS_REGION`               | `us-east-1` | AWS region                                                                                                                                                      |
+| `AWS_ACCESS_KEY_ID`        | —           | Access key (optional if creds come from `~/.aws`/IAM role)                                                                                                      |
+| `AWS_SECRET_ACCESS_KEY`    | —           | Secret key (optional, as above)                                                                                                                                 |
+| `PRESIGNED_URL_EXPIRATION` | `14400`     | URL validity in seconds (4 hours)                                                                                                                               |
+| `OBJECT_KEY_PARAM`         | `objectkey` | Which query param's value is used as the S3 object key                                                                                                          |
+| `REQUIRED_PARAMS`          | `objectkey` | Comma-separated query params that must be present                                                                                                               |
+| `PASSTHROUGH_PORT`         | —           | If set, requests carrying none of this proxy's params are redirected to the same URL on this port instead of returning `400`                                    |
+| `PASSTHROUGH_HOSTS`        | —           | Required with `PASSTHROUGH_PORT`: comma-separated hosts the redirect may target. An entry matches that host or any subdomain of it; a bare `*` matches any host |
+| `PROXY_HOST_PORT`          | `8087`      | Host port published by docker-compose (container always listens on 8088)                                                                                        |
+| `PORT`                     | `8088`      | Port to listen on when running from source (`python app.py`). Leave at the default in the container                                                             |
 
 > `PROXY_HOST_PORT` is used only by `docker-compose.yml` to map the host port; it is not read by the app. Keep it off your other services' ports (e.g. a UI on `8088` → proxy on `8087`).
 
@@ -111,35 +113,45 @@ curl -i  "http://localhost:8087/?objectkey=files/doc.pdf"              # 400 Mis
 
 ### Sharing a hostname with another app
 
-If another service (e.g. a UI) answers on the same hostname but a different port, and links to it were accidentally built with the proxy's port, set `PASSTHROUGH_PORT` to that service's port. Requests missing `REQUIRED_PARAMS` are then bounced back to it — same scheme, host, path and query, only the port swapped:
+If another service (e.g. a UI) answers on the same hostname but a different port, and links to it were accidentally built with the proxy's port, set `PASSTHROUGH_PORT` to that service's port and `PASSTHROUGH_HOSTS` to the hosts it may redirect to. A request carrying **none** of this proxy's params is then bounced back to it — same scheme, host, path and query, only the port swapped:
 
 ```bash
 PASSTHROUGH_PORT=8088
+PASSTHROUGH_HOSTS=example.com
 ```
 
 ```bash
 curl -I "http://localhost:8087/download/file?id=xxx-yyy-zzz"
 
-HTTP/1.1 302 FOUND
+HTTP/1.1 307 TEMPORARY REDIRECT
 Location: http://localhost:8088/download/file?id=xxx-yyy-zzz
 ```
 
-The path is re-encoded from Werkzeug's parsed form, so a percent-encoded path separator (`%2F`) is normalized to `/`.
+Details worth knowing:
+
+- **Only fully unrecognized requests are passed through.** A request carrying *some* of the proxy's params is a malformed proxy request and still gets its `400`, so a typo'd param name surfaces as an error instead of being silently routed elsewhere.
+- **`307`, not `302`** — the method and body survive, so a mis-ported `POST` still reaches the other app.
+- **`PASSTHROUGH_HOSTS` is mandatory.** The redirect target is derived from the client's `Host` header; without an allowlist any client could make this proxy redirect to an arbitrary origin. Unlisted hosts get a `400`.
+- **Subdomains are covered automatically.** `example.com` matches `example.com`, `ui.example.com` and `a.b.example.com`, so write the bare host — there is no `*.example.com` form, and writing one gives you an entry that matches nothing. A bare `*` is the one exception: it disables the check entirely and logs a warning at startup. That is an open redirect, so keep it to local development.
+- **A percent-encoded path separator (`%2F`) is normalized to `/`.** WSGI hands over an already-decoded path, so that distinction cannot be recovered. Other encodings (`%23`, `%3F`, spaces) are preserved.
+- **`PASSTHROUGH_PORT` must differ from the port the request arrived on**, otherwise the redirect would point at itself; that case is refused with a `500` rather than looping. Running from source defaults to listening on `8088`, so if `PASSTHROUGH_PORT` is also `8088` set `PORT` to something else (`PORT=8089 python app.py`) — the container mapping (`8087:8088`) already keeps the two apart.
+- **`/health` is not passed through** — it stays this proxy's own liveness endpoint, which is what the container healthcheck probes.
 
 This is a workaround for a link-generation bug upstream, not a routing layer — fix the caller when you can.
 
 ## Endpoints
 
-| Method | Path | Response |
-|--------|------|----------|
-| `GET` | `/health` | `200 {"status":"ok"}` |
-| `GET` | `/?objectkey=…` | `302` redirect to the pre-signed URL |
+| Method | Path            | Response                             |
+|--------|-----------------|--------------------------------------|
+| `GET`  | `/health`       | `200 {"status":"ok"}`                |
+| `GET`  | `/?objectkey=…` | `302` redirect to the pre-signed URL |
 
-| Status | When |
-|--------|------|
-| `302` | Pre-signed URL generated — `Location` header points to S3 |
-| `400` | A required query parameter is missing |
-| `500` | AWS/S3 error or unexpected failure |
+| Status | When                                                                                              |
+|--------|---------------------------------------------------------------------------------------------------|
+| `302`  | Pre-signed URL generated — `Location` header points to S3                                         |
+| `307`  | Passthrough: request carried none of the proxy's params and was handed to `PASSTHROUGH_PORT`      |
+| `400`  | A required query parameter is missing, or a passthrough target host is not in `PASSTHROUGH_HOSTS` |
+| `500`  | AWS/S3 error, unexpected failure, or `PASSTHROUGH_PORT` equal to the port the request arrived on  |
 
 ## Documentation
 
@@ -175,9 +187,9 @@ The suite stubs the AWS call, so no credentials or network are needed.
 - **Local development only** — no authentication, no HTTPS, Flask's dev server. Anyone who can reach the port can sign a URL for any key in the bucket.
 - **Single bucket.** All requests resolve against `AWS_BUCKET`; there is no per-request bucket or tenant isolation.
 - **Object key from a query param only** — there is no path-based key form.
-- `PASSTHROUGH_PORT` builds its redirect from the request's `Host` header, so a client that spoofs `Host` gets redirected to that host — another reason not to expose this beyond localhost.
+- `PASSTHROUGH_PORT` builds its redirect from the request's `Host` header, bounded by `PASSTHROUGH_HOSTS`. The allowlist is what keeps a spoofed `Host` from turning this into an open redirect, so keep it as narrow as the deployment allows.
 - The container runs hardened under Docker Compose (read-only filesystem with tmpfs, `no-new-privileges`, CPU/memory limits).
-- The host port is `8087` (mapped to the container's `8088`); running from source listens on `8088` directly.
+- The host port is `8087` (mapped to the container's `8088`); running from source listens on `8088` directly unless `PORT` says otherwise.
 
 ---
 
