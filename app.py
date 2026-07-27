@@ -26,6 +26,10 @@ PRESIGNED_URL_EXPIRATION = int(os.environ.get('PRESIGNED_URL_EXPIRATION', '14400
 # Request configuration
 OBJECT_KEY_PARAM = os.environ.get('OBJECT_KEY_PARAM', 'objectkey')
 REQUIRED_PARAMS = [p.strip() for p in os.environ.get('REQUIRED_PARAMS', 'objectkey').split(',') if p.strip()]
+# When set, requests missing the required params are redirected to the same URL on
+# this port instead of getting a 400 — for setups where another app shares the host
+# and only attachment requests belong to this proxy. Unset = plain 400.
+PASSTHROUGH_PORT = os.environ.get('PASSTHROUGH_PORT')
 
 # Initialize S3 client
 s3_client = boto3.client(
@@ -56,10 +60,20 @@ def proxy_url(path):
     logger.info(f"Incoming request: params={dict(request.args)} path={path}")
 
     # Validate configured required parameters
-    for param in REQUIRED_PARAMS:
-        if not request.args.get(param):
-            logger.warning(f"Missing required parameter: {param}")
-            return jsonify({"error": f"Missing required parameter: {param}"}), 400
+    missing = [p for p in REQUIRED_PARAMS if not request.args.get(p)]
+    if missing:
+        if PASSTHROUGH_PORT:
+            # Not an attachment request — hand it back to whatever runs on PASSTHROUGH_PORT,
+            # same host, path and query, only the port swapped.
+            query = request.query_string.decode()
+            target = f"{request.scheme}://{request.host.split(':')[0]}:{PASSTHROUGH_PORT}{request.path}"
+            if query:
+                target += f"?{query}"
+            logger.info(f"Passthrough: missing={missing} target={target}")
+            return redirect(target, code=302)
+
+        logger.warning(f"Missing required parameter: {missing[0]}")
+        return jsonify({"error": f"Missing required parameter: {missing[0]}"}), 400
 
     object_key = request.args.get(OBJECT_KEY_PARAM)
     if not object_key:
@@ -108,6 +122,7 @@ if __name__ == '__main__':
     logger.info(f"Starting Proxy Service on port 8088")
     logger.info(f"AWS Region: {AWS_REGION}, Bucket: {AWS_BUCKET}")
     logger.info(f"Required params: {REQUIRED_PARAMS}, Object key param: {OBJECT_KEY_PARAM}")
+    logger.info(f"Passthrough port: {PASSTHROUGH_PORT or 'disabled (400 on missing params)'}")
     logger.info("⚠️  LOCAL DEVELOPMENT ONLY - DO NOT USE IN PRODUCTION ⚠️")
 
     app.run(host='0.0.0.0', port=8088, debug=False)

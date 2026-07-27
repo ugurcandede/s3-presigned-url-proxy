@@ -40,6 +40,23 @@ def test_extra_required_param_enforced(client, monkeypatch):
     assert 'tenant' in resp.get_json()['error']
 
 
+def test_passthrough_redirects_to_configured_port(client, monkeypatch):
+    monkeypatch.setattr(proxy, 'PASSTHROUGH_PORT', '8088')
+    resp = client.get(
+        '/download/export?jobId=81a31868',
+        base_url='http://gsocial.grispi.local:8087',
+    )
+    assert resp.status_code == 302
+    assert resp.headers['Location'] == 'http://gsocial.grispi.local:8088/download/export?jobId=81a31868'
+
+
+def test_passthrough_does_not_affect_valid_requests(client, monkeypatch):
+    monkeypatch.setattr(proxy, 'PASSTHROUGH_PORT', '8088')
+    resp = client.get('/?objectkey=files/doc.pdf')
+    assert resp.status_code == 302
+    assert resp.headers['Location'] == 'https://example.com/signed'
+
+
 def test_object_key_param_is_configurable(client, monkeypatch):
     monkeypatch.setattr(proxy, 'OBJECT_KEY_PARAM', 'key')
     monkeypatch.setattr(proxy, 'REQUIRED_PARAMS', ['key'])

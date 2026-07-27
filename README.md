@@ -55,16 +55,17 @@ curl -I "http://localhost:8087/?objectkey=files/doc.pdf"   # 302 -> https://...s
 
 All configuration is via environment variables (see `.env.example`).
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `AWS_BUCKET` | — | S3 bucket name (required) |
-| `AWS_REGION` | `us-east-1` | AWS region |
-| `AWS_ACCESS_KEY_ID` | — | Access key (optional if creds come from `~/.aws`/IAM role) |
-| `AWS_SECRET_ACCESS_KEY` | — | Secret key (optional, as above) |
-| `PRESIGNED_URL_EXPIRATION` | `14400` | URL validity in seconds (4 hours) |
-| `OBJECT_KEY_PARAM` | `objectkey` | Which query param's value is used as the S3 object key |
-| `REQUIRED_PARAMS` | `objectkey` | Comma-separated query params that must be present |
-| `PROXY_HOST_PORT` | `8087` | Host port published by docker-compose (container always listens on 8088) |
+| Variable                   | Default     | Description                                                                                                       |
+|----------------------------|-------------|-------------------------------------------------------------------------------------------------------------------|
+| `AWS_BUCKET`               | —           | S3 bucket name (required)                                                                                         |
+| `AWS_REGION`               | `us-east-1` | AWS region                                                                                                        |
+| `AWS_ACCESS_KEY_ID`        | —           | Access key (optional if creds come from `~/.aws`/IAM role)                                                        |
+| `AWS_SECRET_ACCESS_KEY`    | —           | Secret key (optional, as above)                                                                                   |
+| `PRESIGNED_URL_EXPIRATION` | `14400`     | URL validity in seconds (4 hours)                                                                                 |
+| `OBJECT_KEY_PARAM`         | `objectkey` | Which query param's value is used as the S3 object key                                                            |
+| `REQUIRED_PARAMS`          | `objectkey` | Comma-separated query params that must be present                                                                 |
+| `PASSTHROUGH_PORT`         | —           | If set, requests missing `REQUIRED_PARAMS` are redirected to the same URL on this port instead of returning `400` |
+| `PROXY_HOST_PORT`          | `8087`      | Host port published by docker-compose (container always listens on 8088)                                          |
 
 > `PROXY_HOST_PORT` is used only by `docker-compose.yml` to map the host port; it is not read by the app. Keep it off your other services' ports (e.g. a UI on `8088` → proxy on `8087`).
 
@@ -107,6 +108,25 @@ REQUIRED_PARAMS=tenant,objectkey
 curl -I "http://localhost:8087/?tenant=acme&objectkey=files/doc.pdf"   # 302
 curl -i  "http://localhost:8087/?objectkey=files/doc.pdf"              # 400 Missing required parameter: tenant
 ```
+
+### Sharing a hostname with another app
+
+If another service (e.g. a UI) answers on the same hostname but a different port, and links to it were accidentally built with the proxy's port, set `PASSTHROUGH_PORT` to that service's port. Requests missing `REQUIRED_PARAMS` are then bounced back to it — same scheme, host, path and query, only the port swapped:
+
+```bash
+PASSTHROUGH_PORT=8088
+```
+
+```bash
+curl -I "http://localhost:8087/download/file?id=xxx-yyy-zzz"
+
+HTTP/1.1 302 FOUND
+Location: http://localhost:8088/download/file?id=xxx-yyy-zzz
+```
+
+The path is re-encoded from Werkzeug's parsed form, so a percent-encoded path separator (`%2F`) is normalized to `/`.
+
+This is a workaround for a link-generation bug upstream, not a routing layer — fix the caller when you can.
 
 ## Endpoints
 
@@ -155,6 +175,7 @@ The suite stubs the AWS call, so no credentials or network are needed.
 - **Local development only** — no authentication, no HTTPS, Flask's dev server. Anyone who can reach the port can sign a URL for any key in the bucket.
 - **Single bucket.** All requests resolve against `AWS_BUCKET`; there is no per-request bucket or tenant isolation.
 - **Object key from a query param only** — there is no path-based key form.
+- `PASSTHROUGH_PORT` builds its redirect from the request's `Host` header, so a client that spoofs `Host` gets redirected to that host — another reason not to expose this beyond localhost.
 - The container runs hardened under Docker Compose (read-only filesystem with tmpfs, `no-new-privileges`, CPU/memory limits).
 - The host port is `8087` (mapped to the container's `8088`); running from source listens on `8088` directly.
 
