@@ -116,7 +116,7 @@ jobs:
 
           **Docker Hub:**
           ```bash
-          docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
+          docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.tag }}
           docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/${{ env.IMAGE_NAME }}:latest
           ```
 
@@ -130,7 +130,7 @@ jobs:
             -e AWS_BUCKET=your-bucket \
             -e AWS_ACCESS_KEY_ID=your-key \
             -e AWS_SECRET_ACCESS_KEY=your-secret \
-            ${{ secrets.DOCKER_HUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
+            ${{ secrets.DOCKER_HUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.tag }}
           ```
 
           ### ✅ Features
