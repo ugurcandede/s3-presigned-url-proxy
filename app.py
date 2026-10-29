@@ -33,8 +33,8 @@ REQUIRED_PARAMS = [p.strip() for p in os.environ.get('REQUIRED_PARAMS', 'objectk
 # A request carrying none of this proxy's params is handed back to PASSTHROUGH_PORT
 # instead of being rejected. PASSTHROUGH_HOSTS bounds which hosts may be redirected to,
 # since the target is derived from the client-supplied Host header. An entry matches the
-# host itself or any subdomain of it, so 'grispi.local' already covers every subdomain —
-# write the bare host, not '*.grispi.local'. A bare '*' matches any host.
+# host itself or any subdomain of it, so 'example.local' already covers every subdomain —
+# write the bare host, not '*.example.local'. A bare '*' matches any host.
 # Unset = feature off, plain 400.
 PASSTHROUGH_PORT = os.environ.get('PASSTHROUGH_PORT') or None
 PASSTHROUGH_HOSTS = [h for h in (e.strip().lower()
