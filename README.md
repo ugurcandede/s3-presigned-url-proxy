@@ -141,10 +141,10 @@ This is a workaround for a link-generation bug upstream, not a routing layer —
 
 ## Endpoints
 
-| Method | Path            | Response                             |
-|--------|-----------------|--------------------------------------|
-| `GET`  | `/health`       | `200 {"status":"ok"}`                |
-| `GET`  | `/?objectkey=…` | `302` redirect to the pre-signed URL |
+| Method                              | Path                                     | Response                                                   |
+|-------------------------------------|------------------------------------------|------------------------------------------------------------|
+| `GET`                               | `/health`                                | `200 {"status":"ok"}`                                      |
+| `GET` `POST` `PUT` `PATCH` `DELETE` | `/?objectkey=…` or `/<path>?objectkey=…` | `302` redirect to the pre-signed URL (`<path>` is ignored) |
 
 | Status | When                                                                                              |
 |--------|---------------------------------------------------------------------------------------------------|

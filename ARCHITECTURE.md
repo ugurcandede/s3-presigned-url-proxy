@@ -148,8 +148,9 @@ the request arrived on gets a 500 instead of looping back on itself.
 ### Invalid S3 Key
 ```
 Request:  GET http://localhost:8087/?objectkey=nonexistent.pdf
-Response: 500 Internal Server Error
-Body:     {"error": "Failed to generate S3 URL", "details": "..."}
+Response: 302 Found (signing does not check that the key exists)
+Then:     S3 answers the redirected request with 404 NoSuchKey
+          (403 AccessDenied if the credentials lack s3:ListBucket)
 ```
 
 ### AWS Credentials Error
@@ -263,7 +264,7 @@ Application       Flask Proxy         AWS S3            Browser/Client
 ├────────────────────────────────────────────────────────────────────┤
 │ ✓ Docker container in bridge network                               │
 │ ✓ Only port 8087 exposed to host                                   │
-│ ✓ No external access (localhost only)                              │
+│ ⚠ Published on all host interfaces (0.0.0.0), not localhost only   │
 └────────────────────────────────────────────────────────────────────┘
 
 ┌────────────────────────────────────────────────────────────────────┐
@@ -296,7 +297,7 @@ Application       Flask Proxy         AWS S3            Browser/Client
 
 - **Response Time:** < 100ms (URL generation only)
 - **File Transfer:** Direct S3 → Client (no proxy bottleneck)
-- **Concurrent Requests:** Limited by Flask (single-threaded by default)
+- **Concurrent Requests:** Limited by Flask's dev server (threaded, not production-grade)
 - **Memory Usage:** ~50-100 MB (Python + Flask + boto3)
 - **CPU Usage:** Minimal (only URL generation)
 
